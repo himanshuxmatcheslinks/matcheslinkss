@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>iframe</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background: black;
+    }
+  </style>
+</head>
+<body>
+
+  <video id="player" controls autoplay poster="https://webiptv.updatesbyrahul.site/weiptv.webp">
+    <source id="src1" type="application/mpegURL">
+    <source id="src2" type="application/vnd.apple.mpegURL">
+    Your browser does not support HLS playback.
+  </video>
+
+  <script>
+    const url = new URLSearchParams(window.location.search).get("url");
+    const video = document.getElementById("player");
+
+    if (url) {
+      document.getElementById("src1").src = url;
+      document.getElementById("src2").src = url;
+      video.load();
+    } else {
+      document.body.innerHTML = "<h2 style='color:white;text-align:center;padding-top:20%;'>⚠️ No video URL provided</h2>";
+    }
+  </script>
+
+</body>
+</html>
