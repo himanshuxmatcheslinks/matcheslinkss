@@ -3,14 +3,8 @@
 #EXT-X-TARGETDURATION:6
 #EXT-X-MEDIA-SEQUENCE:20276
 #EXTINF:5.255,
-https://ac.lchdvideo.live/_next/static/chunks/styles-12774d122cb64d9b.css
-#EXTINF:5.255,
-https://ac.lchdvideo.live/_next/static/chunks/styles-77396843000e4af0.css
-#EXTINF:5.255,
 https://ac.lchdvideo.live/_next/static/chunks/chunks-5b777749a5d64c8c.js
 #EXTINF:5.255,
 https://ac.lchdvideo.live/_next/static/chunks/framework-ef1cd94330d247a1.js
 #EXTINF:5.255,
 https://ac.lchdvideo.live/_next/static/chunks/main-af42e631ead8478b.js
-#EXTINF:5.255,
-https://ac.lchdvideo.live/_next/static/chunks/styles-67729c9717f84cbe.css
