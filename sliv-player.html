@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>HLS Video Player</title>
+  <title>HLS Video Player with Quality Selection</title>
   <style>
     html, body {
       margin: 0;
@@ -41,6 +41,11 @@
       width: 100%;
       text-align: center;
       z-index: 10;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .controls:hover, .controls.visible {
+      opacity: 1;
     }
     .controls button {
       background: rgba(0,0,0,0.7);
@@ -50,9 +55,47 @@
       margin: 0 5px;
       border-radius: 4px;
       cursor: pointer;
+      font-size: 14px;
     }
     .controls button:hover {
       background: rgba(255,255,255,0.2);
+    }
+    .quality-selector {
+      position: absolute;
+      bottom: 70px;
+      right: 20px;
+      background: rgba(0,0,0,0.8);
+      border-radius: 4px;
+      padding: 10px;
+      display: none;
+      z-index: 20;
+    }
+    .quality-selector.visible {
+      display: block;
+    }
+    .quality-option {
+      color: white;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    .quality-option:hover {
+      background: rgba(255,255,255,0.1);
+    }
+    .quality-option:last-child {
+      border-bottom: none;
+    }
+    .quality-option.active {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    .current-quality {
+      color: white;
+      background: rgba(0,0,0,0.7);
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-left: 10px;
     }
   </style>
 </head>
@@ -63,9 +106,15 @@
     Your browser does not support HLS playback.
   </video>
   
-  <div class="controls" id="controls" style="display: none;">
+  <div class="controls" id="controls">
     <button id="fullscreenBtn">Fullscreen</button>
+    <button id="qualityBtn">Quality <span id="currentQualityText" class="current-quality">Auto</span></button>
     <button id="reloadBtn">Reload Stream</button>
+  </div>
+
+  <div class="quality-selector" id="qualitySelector">
+    <div class="quality-option" data-level="-1">Auto</div>
+    <!-- Quality options will be dynamically added here -->
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -74,6 +123,12 @@
     const video = document.getElementById("player");
     const loading = document.getElementById("loading");
     const controls = document.getElementById("controls");
+    const qualityBtn = document.getElementById("qualityBtn");
+    const qualitySelector = document.getElementById("qualitySelector");
+    const currentQualityText = document.getElementById("currentQualityText");
+    
+    let hls = null;
+    let availableLevels = [];
     
     // Check if HLS.js is supported
     const hlsSupported = Hls.isSupported();
@@ -95,7 +150,7 @@
         video.src = url;
         video.addEventListener('loadedmetadata', function() {
           loading.style.display = "none";
-          controls.style.display = "block";
+          controls.classList.add('visible');
         });
         video.addEventListener('error', function() {
           showError("❌ Error loading video stream");
@@ -103,7 +158,7 @@
       } 
       // For browsers that need HLS.js (mostly desktop)
       else if (hlsSupported) {
-        const hls = new Hls({
+        hls = new Hls({
           debug: false,
           enableWorker: false // Improve performance
         });
@@ -113,8 +168,12 @@
         
         hls.on(Hls.Events.MANIFEST_PARSED, function() {
           loading.style.display = "none";
-          controls.style.display = "block";
+          controls.classList.add('visible');
           video.play();
+        });
+        
+        hls.on(Hls.Events.LEVEL_LOADED, function(event, data) {
+          updateQualitySelector();
         });
         
         hls.on(Hls.Events.ERROR, function(event, data) {
@@ -143,6 +202,78 @@
       }
     }
     
+    function updateQualitySelector() {
+      if (!hls) return;
+      
+      availableLevels = hls.levels;
+      const qualityOptions = document.querySelectorAll('.quality-option:not([data-level="-1"])');
+      qualityOptions.forEach(option => option.remove());
+      
+      // Add available quality levels
+      availableLevels.forEach((level, index) => {
+        const option = document.createElement('div');
+        option.className = 'quality-option';
+        option.dataset.level = index;
+        
+        // Format the quality label
+        let qualityLabel = '';
+        if (level.height) {
+          qualityLabel = `${level.height}p`;
+        } else if (level.width) {
+          qualityLabel = `${Math.round(level.width / 16) * 10}p`;
+        } else if (level.bitrate) {
+          qualityLabel = `${Math.round(level.bitrate / 1000)} kbps`;
+        } else {
+          qualityLabel = `Level ${index}`;
+        }
+        
+        option.textContent = qualityLabel;
+        qualitySelector.appendChild(option);
+      });
+      
+      // Update current quality display
+      updateCurrentQualityDisplay();
+    }
+    
+    function updateCurrentQualityDisplay() {
+      if (!hls) return;
+      
+      const currentLevel = hls.currentLevel;
+      
+      if (currentLevel === -1) {
+        currentQualityText.textContent = 'Auto';
+        return;
+      }
+      
+      const level = availableLevels[currentLevel];
+      if (!level) return;
+      
+      let qualityLabel = '';
+      if (level.height) {
+        qualityLabel = `${level.height}p`;
+      } else if (level.width) {
+        qualityLabel = `${Math.round(level.width / 16) * 10}p`;
+      } else if (level.bitrate) {
+        qualityLabel = `${Math.round(level.bitrate / 1000)} kbps`;
+      } else {
+        qualityLabel = `Level ${currentLevel}`;
+      }
+      
+      currentQualityText.textContent = qualityLabel;
+    }
+    
+    function setQuality(level) {
+      if (!hls) return;
+      
+      hls.currentLevel = level;
+      updateCurrentQualityDisplay();
+      
+      // Update active state in quality selector
+      document.querySelectorAll('.quality-option').forEach(option => {
+        option.classList.toggle('active', parseInt(option.dataset.level) === level);
+      });
+    }
+    
     // Initialize player when page loads
     document.addEventListener('DOMContentLoaded', initPlayer);
     
@@ -160,6 +291,32 @@
     document.getElementById('reloadBtn').addEventListener('click', function() {
       location.reload();
     });
+    
+    // Quality selector functionality
+    qualityBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      qualitySelector.classList.toggle('visible');
+    });
+    
+    qualitySelector.addEventListener('click', function(e) {
+      if (e.target.classList.contains('quality-option')) {
+        const level = parseInt(e.target.dataset.level);
+        setQuality(level);
+        qualitySelector.classList.remove('visible');
+      }
+    });
+    
+    // Close quality selector when clicking elsewhere
+    document.addEventListener('click', function() {
+      qualitySelector.classList.remove('visible');
+    });
+    
+    // Update current quality when level changes
+    if (hls) {
+      hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
+        updateCurrentQualityDisplay();
+      });
+    }
   </script>
 </body>
 </html>
