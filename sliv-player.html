@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>iframe</title>
+  <title>HLS Video Player</title>
   <style>
     html, body {
       margin: 0;
@@ -12,6 +11,7 @@
       height: 100%;
       width: 100%;
       overflow: hidden;
+      font-family: Arial, sans-serif;
     }
     video {
       position: absolute;
@@ -22,28 +22,144 @@
       object-fit: contain;
       background: black;
     }
+    .error {
+      color: white;
+      text-align: center;
+      padding-top: 20%;
+      font-size: 1.2em;
+    }
+    .loading {
+      color: white;
+      text-align: center;
+      padding-top: 20%;
+      font-size: 1.2em;
+    }
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      z-index: 10;
+    }
+    .controls button {
+      background: rgba(0,0,0,0.7);
+      color: white;
+      border: 1px solid white;
+      padding: 8px 16px;
+      margin: 0 5px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .controls button:hover {
+      background: rgba(255,255,255,0.2);
+    }
   </style>
 </head>
 <body>
-
-  <video id="player" controls autoplay poster="">
-    <source id="src1" type="application/mpegURL">
-    <source id="src2" type="application/vnd.apple.mpegURL">
+  <div id="loading" class="loading">Loading video player...</div>
+  
+  <video id="player" controls autoplay poster="https://webiptv.updatesbyrahul.site/weiptv.webp">
     Your browser does not support HLS playback.
   </video>
+  
+  <div class="controls" id="controls" style="display: none;">
+    <button id="fullscreenBtn">Fullscreen</button>
+    <button id="reloadBtn">Reload Stream</button>
+  </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script>
     const url = new URLSearchParams(window.location.search).get("url");
     const video = document.getElementById("player");
-
-    if (url) {
-      document.getElementById("src1").src = url;
-      document.getElementById("src2").src = url;
-      video.load();
-    } else {
-      document.body.innerHTML = "<h2 style='color:white;text-align:center;padding-top:20%;'>⚠️ No video URL provided</h2>";
+    const loading = document.getElementById("loading");
+    const controls = document.getElementById("controls");
+    
+    // Check if HLS.js is supported
+    const hlsSupported = Hls.isSupported();
+    
+    function showError(message) {
+      document.body.innerHTML = `<div class="error">${message}</div>`;
     }
+    
+    function initPlayer() {
+      if (!url) {
+        showError("⚠️ No video URL provided");
+        return;
+      }
+      
+      loading.style.display = "block";
+      
+      // For browsers that natively support HLS (mostly mobile)
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        video.addEventListener('loadedmetadata', function() {
+          loading.style.display = "none";
+          controls.style.display = "block";
+        });
+        video.addEventListener('error', function() {
+          showError("❌ Error loading video stream");
+        });
+      } 
+      // For browsers that need HLS.js (mostly desktop)
+      else if (hlsSupported) {
+        const hls = new Hls({
+          debug: false,
+          enableWorker: false // Improve performance
+        });
+        
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+          loading.style.display = "none";
+          controls.style.display = "block";
+          video.play();
+        });
+        
+        hls.on(Hls.Events.ERROR, function(event, data) {
+          console.error("HLS Error:", data);
+          if (data.fatal) {
+            switch(data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                showError("❌ Network error - trying to recover");
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                showError("❌ Media error - trying to recover");
+                hls.recoverMediaError();
+                break;
+              default:
+                showError("❌ Fatal error - cannot recover");
+                hls.destroy();
+                break;
+            }
+          }
+        });
+      } 
+      // Fallback for unsupported browsers
+      else {
+        showError("❌ Your browser doesn't support HLS video playback");
+      }
+    }
+    
+    // Initialize player when page loads
+    document.addEventListener('DOMContentLoaded', initPlayer);
+    
+    // Add control button functionality
+    document.getElementById('fullscreenBtn').addEventListener('click', function() {
+      if (video.requestFullscreen) {
+        video.requestFullscreen();
+      } else if (video.webkitRequestFullscreen) {
+        video.webkitRequestFullscreen();
+      } else if (video.mozRequestFullScreen) {
+        video.mozRequestFullScreen();
+      }
+    });
+    
+    document.getElementById('reloadBtn').addEventListener('click', function() {
+      location.reload();
+    });
   </script>
-
 </body>
 </html>
